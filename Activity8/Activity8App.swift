@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct Activity8App: App {
@@ -13,5 +14,6 @@ struct Activity8App: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: Song.self)
     }
 }
