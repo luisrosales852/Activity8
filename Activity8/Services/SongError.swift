@@ -13,6 +13,7 @@ enum SongError: LocalizedError, Equatable {
     case emptyFeelings
     case invalidScore
     case saveFailed
+    case deleteFailed
 
     var errorDescription: String? {
         switch self {
@@ -26,6 +27,8 @@ enum SongError: LocalizedError, Equatable {
             "Las calificaciones deben estar entre 1 y 5 estrellas."
         case .saveFailed:
             "No se pudo guardar la canción. Intenta de nuevo."
+        case .deleteFailed:
+            "No se pudo eliminar la canción. Intenta de nuevo."
         }
     }
 }

@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct SongListView: View {
+    @Environment(\.modelContext) private var modelContext
+
     @Query(sort: [
         SortDescriptor(\Song.overallScore, order: .reverse),
         SortDescriptor(\Song.dateAdded, order: .reverse)
@@ -17,6 +19,11 @@ struct SongListView: View {
 
     @State private var isShowingAddForm = false
     @State private var songToEdit: Song?
+    @State private var songToDelete: Song?
+    @State private var isShowingDeleteConfirmation = false
+
+    @State private var errorMessage = ""
+    @State private var isShowingError = false
 
     var body: some View {
         NavigationStack {
@@ -38,6 +45,13 @@ struct SongListView: View {
                             SongRowView(song: song)
                         }
                         .foregroundStyle(.primary)
+                        .swipeActions(edge: .trailing) {
+                            Button("Eliminar", systemImage: "trash") {
+                                songToDelete = song
+                                isShowingDeleteConfirmation = true
+                            }
+                            .tint(.red)
+                        }
                     }
                 }
             }
@@ -55,6 +69,33 @@ struct SongListView: View {
             .sheet(item: $songToEdit) { song in
                 SongFormView(song: song)
             }
+            .confirmationDialog(
+                "¿Eliminar «\(songToDelete?.title ?? "")»?",
+                isPresented: $isShowingDeleteConfirmation,
+                titleVisibility: .visible,
+                presenting: songToDelete
+            ) { song in
+                Button("Eliminar", role: .destructive) { delete(song) }
+                Button("Cancelar", role: .cancel) {}
+            } message: { _ in
+                Text("Esta acción no se puede deshacer.")
+            }
+            .alert("Ocurrió un error", isPresented: $isShowingError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+
+    private func delete(_ song: Song) {
+        modelContext.delete(song)
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            errorMessage = SongError.deleteFailed.localizedDescription
+            isShowingError = true
         }
     }
 }
