@@ -12,7 +12,7 @@ import SwiftData
 struct Activity8App: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SongListView()
         }
         .modelContainer(for: Song.self)
     }
