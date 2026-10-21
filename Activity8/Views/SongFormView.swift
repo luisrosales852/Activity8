@@ -13,6 +13,7 @@ struct SongFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     private let song: Song?
+    private let reviewService: any SongReviewGenerating
 
     @State private var title: String
     @State private var album: String
@@ -20,21 +21,31 @@ struct SongFormView: View {
     @State private var beatScore: Int
     @State private var lyricsScore: Int
     @State private var overallScore: Int
+    @State private var aiSummary: String?
 
+    @State private var isGeneratingReview = false
     @State private var errorMessage = ""
     @State private var isShowingError = false
 
-    init(song: Song? = nil) {
+    init(song: Song? = nil, reviewService: any SongReviewGenerating = FoundationModelsReviewService()) {
         self.song = song
+        self.reviewService = reviewService
         _title = State(initialValue: song?.title ?? "")
         _album = State(initialValue: song?.album ?? "")
         _feelings = State(initialValue: song?.feelings ?? "")
         _beatScore = State(initialValue: song?.beatScore ?? 3)
         _lyricsScore = State(initialValue: song?.lyricsScore ?? 3)
         _overallScore = State(initialValue: song?.overallScore ?? 3)
+        _aiSummary = State(initialValue: song?.aiSummary)
     }
 
     private var isEditing: Bool { song != nil }
+
+    private var canGenerateReview: Bool {
+        reviewService.unavailableReason == nil
+            && !isGeneratingReview
+            && !feelings.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -47,6 +58,33 @@ struct SongFormView: View {
                 Section("¿Cómo te hizo sentir?") {
                     TextField("Escribe lo que sentiste al escucharla…", text: $feelings, axis: .vertical)
                         .lineLimit(4...8)
+                }
+
+                Section {
+                    Button {
+                        Task { await generateReview() }
+                    } label: {
+                        if isGeneratingReview {
+                            HStack {
+                                ProgressView()
+                                Text("Calificando…")
+                            }
+                        } else {
+                            Label("Calificar con IA", systemImage: "sparkles")
+                        }
+                    }
+                    .disabled(!canGenerateReview)
+
+                    if let aiSummary {
+                        Text(aiSummary)
+                            .font(.callout)
+                            .italic()
+                    }
+                } header: {
+                    Text("Reseña con IA")
+                } footer: {
+                    Text(reviewService.unavailableReason
+                         ?? "La IA llena las estrellas y resume tu reseña. Puedes ajustarlas antes de guardar.")
                 }
 
                 Section("Calificación") {
@@ -65,7 +103,7 @@ struct SongFormView: View {
                     Button("Guardar", action: save)
                 }
             }
-            .alert("No se pudo guardar", isPresented: $isShowingError) {
+            .alert("Algo salió mal", isPresented: $isShowingError) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorMessage)
@@ -94,6 +132,25 @@ struct SongFormView: View {
         }
     }
 
+    private func generateReview() async {
+        isGeneratingReview = true
+        defer { isGeneratingReview = false }
+
+        do {
+            let review = try await reviewService.generateReview(title: title, album: album, feelings: feelings)
+            withAnimation {
+                beatScore = review.beatScore
+                lyricsScore = review.lyricsScore
+                overallScore = review.overallScore
+                aiSummary = review.summary
+            }
+        } catch let error as SongError {
+            showError(error)
+        } catch {
+            showError(.aiFailed)
+        }
+    }
+
     private func applyChanges() {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanAlbum = album.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -106,6 +163,7 @@ struct SongFormView: View {
             song.beatScore = beatScore
             song.lyricsScore = lyricsScore
             song.overallScore = overallScore
+            song.aiSummary = aiSummary
         } else {
             let newSong = Song(
                 title: cleanTitle,
@@ -113,7 +171,8 @@ struct SongFormView: View {
                 feelings: cleanFeelings,
                 beatScore: beatScore,
                 lyricsScore: lyricsScore,
-                overallScore: overallScore
+                overallScore: overallScore,
+                aiSummary: aiSummary
             )
             modelContext.insert(newSong)
         }

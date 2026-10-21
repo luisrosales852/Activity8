@@ -14,6 +14,9 @@ enum SongError: LocalizedError, Equatable {
     case invalidScore
     case saveFailed
     case deleteFailed
+    case aiUnavailable
+    case aiBlocked
+    case aiFailed
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +32,12 @@ enum SongError: LocalizedError, Equatable {
             "No se pudo guardar la canción. Intenta de nuevo."
         case .deleteFailed:
             "No se pudo eliminar la canción. Intenta de nuevo."
+        case .aiUnavailable:
+            "Apple Intelligence no está disponible. Puedes calificar la canción manualmente."
+        case .aiBlocked:
+            "La IA no pudo procesar tu texto. Intenta describir la canción con otras palabras."
+        case .aiFailed:
+            "La IA no pudo generar tu reseña. Intenta de nuevo o califica manualmente."
         }
     }
 }
