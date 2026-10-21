@@ -17,13 +17,7 @@ struct SongListView: View {
     ])
     private var songs: [Song]
 
-    @State private var isShowingAddForm = false
-    @State private var songToEdit: Song?
-    @State private var songToDelete: Song?
-    @State private var isShowingDeleteConfirmation = false
-
-    @State private var errorMessage = ""
-    @State private var isShowingError = false
+    @State private var viewModel = SongListViewModel()
 
     var body: some View {
         NavigationStack {
@@ -34,21 +28,20 @@ struct SongListView: View {
                     } description: {
                         Text("Agrega tu primera canción de Álvaro Díaz para empezar tu ranking.")
                     } actions: {
-                        Button("Agregar canción") { isShowingAddForm = true }
+                        Button("Agregar canción") { viewModel.isShowingAddForm = true }
                             .buttonStyle(.borderedProminent)
                     }
                 } else {
                     List(songs) { song in
                         Button {
-                            songToEdit = song
+                            viewModel.songToEdit = song
                         } label: {
                             SongRowView(song: song)
                         }
                         .foregroundStyle(.primary)
                         .swipeActions(edge: .trailing) {
                             Button("Eliminar", systemImage: "trash") {
-                                songToDelete = song
-                                isShowingDeleteConfirmation = true
+                                viewModel.confirmDelete(song)
                             }
                             .tint(.red)
                         }
@@ -59,43 +52,34 @@ struct SongListView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("Agregar canción", systemImage: "plus") {
-                        isShowingAddForm = true
+                        viewModel.isShowingAddForm = true
                     }
                 }
             }
-            .sheet(isPresented: $isShowingAddForm) {
+            .sheet(isPresented: $viewModel.isShowingAddForm) {
                 SongFormView()
             }
-            .sheet(item: $songToEdit) { song in
+            .sheet(item: $viewModel.songToEdit) { song in
                 SongFormView(song: song)
             }
             .confirmationDialog(
-                "¿Eliminar «\(songToDelete?.title ?? "")»?",
-                isPresented: $isShowingDeleteConfirmation,
+                "¿Eliminar «\(viewModel.songToDelete?.title ?? "")»?",
+                isPresented: $viewModel.isShowingDeleteConfirmation,
                 titleVisibility: .visible,
-                presenting: songToDelete
+                presenting: viewModel.songToDelete
             ) { song in
-                Button("Eliminar", role: .destructive) { delete(song) }
+                Button("Eliminar", role: .destructive) {
+                    viewModel.delete(song, from: modelContext)
+                }
                 Button("Cancelar", role: .cancel) {}
             } message: { _ in
                 Text("Esta acción no se puede deshacer.")
             }
-            .alert("Ocurrió un error", isPresented: $isShowingError) {
+            .alert("Ocurrió un error", isPresented: $viewModel.isShowingError) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(errorMessage)
+                Text(viewModel.errorMessage)
             }
-        }
-    }
-
-    private func delete(_ song: Song) {
-        modelContext.delete(song)
-        do {
-            try modelContext.save()
-        } catch {
-            modelContext.rollback()
-            errorMessage = SongError.deleteFailed.localizedDescription
-            isShowingError = true
         }
     }
 }
