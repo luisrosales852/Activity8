@@ -15,22 +15,46 @@ struct SongListView: View {
     ])
     private var songs: [Song]
 
+    @State private var isShowingAddForm = false
+    @State private var songToEdit: Song?
+
     var body: some View {
         NavigationStack {
             Group {
                 if songs.isEmpty {
-                    ContentUnavailableView(
-                        "Aún no has calificado canciones",
-                        systemImage: "music.note.list",
-                        description: Text("Agrega tu primera canción de Álvaro Díaz para empezar tu ranking.")
-                    )
+                    ContentUnavailableView {
+                        Label("Aún no has calificado canciones", systemImage: "music.note.list")
+                    } description: {
+                        Text("Agrega tu primera canción de Álvaro Díaz para empezar tu ranking.")
+                    } actions: {
+                        Button("Agregar canción") { isShowingAddForm = true }
+                            .buttonStyle(.borderedProminent)
+                    }
                 } else {
                     List(songs) { song in
-                        SongRowView(song: song)
+                        Button {
+                            songToEdit = song
+                        } label: {
+                            SongRowView(song: song)
+                        }
+                        .foregroundStyle(.primary)
                     }
                 }
             }
             .navigationTitle("Mi Ranking")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Agregar canción", systemImage: "plus") {
+                        isShowingAddForm = true
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingAddForm) {
+                SongFormView()
+            }
+            .sheet(item: $songToEdit) { song in
+                SongFormView(song: song)
+            }
         }
     }
 }
